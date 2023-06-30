@@ -17,6 +17,15 @@ parser = argparse.ArgumentParser(
     ),
 )
 
+# ACT (style): If you'd like to be able to distinguish when a user has not
+# provided a command-line argument, it usually suffices to not specify the
+# default parameter or set default=None. Then, you can test if the parameter
+# was set using a test like
+#
+# if args.s is None:
+#     # The user has not provided the -s argument.
+#     ...
+
 #command line option for seperated files 
 parser.add_argument(
     '-s',
@@ -120,6 +129,16 @@ args = parser.parse_args()
 #config file maker
 
 def config():
+    # ACT (style): Instead of closing and reopening the file here, I recommend
+    # opening the file with the "r+" mode and seeking to the beginning of the
+    # file after you are done reading.
+    #
+    # For example,
+    #
+    # with open('Programs/TeloPort/config.ini', 'r+') as read:
+    #     if read.readline().split('\n')[0] == 'setup=yes':
+    #         read.fseek(0)
+    #         ...
     with open('Programs/TeloPort/config.ini', 'r') as read:
         if read.readline().split('\n')[0] == 'setup=yes':
             read.close()
@@ -238,6 +257,7 @@ def telomereFinderSeperated():
     subprocess.run(['Programs/TeloPort/build/apps/telomereFinder', 
         '-s',
         os.path.join(readDir, genomeR1),
+        # ACT: Should the second argument below be genomeR2?
         os.path.join(readDir, genomeR1),
         '-o',
         'Programs/TeloPort/Outputs/' + directory + '/teloPortOut/',
@@ -262,12 +282,24 @@ def idTagger():
     pairLines, pairLineCnt = fileListBuilder(
         os.path.join('Programs/TeloPort/Outputs/',
             directory,
+            # ACT: Since this is a relative path, you shouldn't start this with
+            # a / .
             '/teloPortOut/pairReads.fastq')
         )
     newFile = os.path.join('Programs/TeloPort/Outputs/',
         directory,
         '/teloPortOut/subTelReads.fastq')
     with open(newFile, 'a') as write:
+        # ACT: I don't think this will work. x is initially 0, so it is
+        # incremented to 1 in the first iteration of the for loop. But then,
+        # x % 4 is 1, so x is never incremented again.
+        #
+        # I think you want to make your condition based on the line number. You
+        # can do that with something like
+        #
+        # for lineno, line in enumerate(pairLines):
+        #     if lineno % 4 == 0:
+        #         ...
         x = 0
         for line in pairLines:
             if x % 4 == 0:
@@ -393,6 +425,7 @@ def deNovoRename():
                     write.write(f'{directory}\t{line.lstrip(">")}')
                 else:
                     write.write(line)
+            # ACT (style): Does this need to be in the with block?
             os.remove(f'{cluster}{i}.fasta')
         newClusterCnt = len(glob.glob(
             os.path.join('Programs/TeloPort/Outputs/',
@@ -421,6 +454,8 @@ def firstDeNovoCount():
     cnt = 0
     for line in clusterLines:
         if line[0:1]=='cl':
+            # ACT: Are you sure you want to be doing string comparison here?
+            # Note that, e.g., "10" <= "9" under string comparison.
             if line.split('=')[1] <= str(cutOff):
                 break    
             cnt += 1
@@ -464,6 +499,14 @@ def autoMuscle():
                        check=True)
 #turns all consenus seqeunces into one file and blasts
 def consBlast():
+    # ACT (style): Since all of these begin with
+    # os.path.join("Programs/TeloPort/Outputs", directory), I'd recommend
+    # saving that in a variable and then joining to that. For example,
+    #
+    # base_dir = os.path.join("Programs/TeloPort/Outputs", directory)
+    # cons = os.path.join(base_dir, "consOut")
+    # blast = os.path.join(base_dir, "blastOut")
+    # ...
     cons = os.path.join('Programs/TeloPort/Outputs/',
                                directory, 
                                'consOut')
@@ -545,6 +588,7 @@ def dictMaker(file, secondVal):
             if item[0] not in dictionary:
                 dictionary[item[0]] = (item[1], item[secondVal])
             elif secondVal == 3:
+                # ACT: Do you need to parse these as numbers first?
                 if item[3] > dictionary[item[1]][1]:
                     dictionary[item[0]]=(item[1], item[3])
                     
@@ -599,6 +643,7 @@ def deNovoFilter():
                                   'blastOut',
                                   'blastFilter',
                                   f'{directory}{file.split[0]}.txt'))
+                # ACT: Are you sure you want write here and not writelines?
                 write.write(lines)
         filterSingles = dictMaker(os.path.join('Programs/TeloPort/Outputs',
                       directory,
@@ -615,6 +660,10 @@ def deNovoFilter():
         
         for i in range(0,lineCnt):
             if lines[i][0] == '>':
+                # ACT (style): It's usually preferred that variable names begin
+                # with lowercase letters. id isn't a good option because id is
+                # already a built-in function. You might choose something like
+                # "seqID".
                 ID = lines[i].split('\t')[0].lstrip('>')
                 if ID in filterSingles:
                     with open(os.path.join('Programs/TeloPort/Outputs/',
@@ -711,6 +760,7 @@ def blastInterrogate():
     for x in range(linesCnt):
         telContigCheck = False
         blastAn = ''
+        # ACT: Should cnt be x?
         queryName = readLines[cnt].split('\t')[0]
         subjectName = readLines[cnt].split('\t')[1]
         telDisS = 0
@@ -827,6 +877,8 @@ if addBlastCnt > 0:
                            directory,
                            'blastOut',
                            'blastAdd',
+                           # ACT: I think this is a syntax error. Do you meaan
+                           # f'{directory}{file.split(".")[0]}blast.txt'?
                            f'{directory}{file.split(".")[0]blast.txt}'),
               '')
 
